@@ -1,6 +1,39 @@
 params.simplex = true
 params.dorado_cpu = false
 params.b = null
+params.no_mod = false
+
+// Usage help
+
+def helpMessage() {
+  log.info """
+        Usage:
+        The typical command for running the pipeline is as follows:
+        nextflow run chusj-pigu/nf-sturgeon --pod5 path/to/pod5 --sample_ID "ID"
+
+        Mandatory arguments:
+         --pod5                         Path to the directory containing pod5 files
+         --ref_hg38                     Path to the GRCh38 genome assembly. If using -profile drac, you can omit this option and the reference under Platform directory in ctb-noncodo will be used by default.
+         --ref_hgchm13                  Path to the Telomere-to-telomere reference genome (CHM13v2). If using -profile drac, you can omit this option and the reference under Platform directory in ctb-noncodo will be used by default.
+         --sturgeon_model               Path to the sturgeon model. If using -profile drac, you can omit this option and the reference under Platform directory in ctb-noncodo will be used by default.
+
+         Optional arguments:
+         --dorado_model                 Basecalling model, path is required when running with drac profile [default: path to sup@v5.0.0]
+         --out_dir                      Output directory to place mapped files and reports in [default: output]
+         --sample_id                    Will name output files according to sample id [default: reads]
+         --m_bases                      Modified bases to be called, separated by commas if more than one is desired. Requires path to model if run with drac profile [default: 5mCG_5hmCG].
+         --m_bases_path                 Path for the modified basecalling model, required when running with drac profile [default: path to sup@v5.0.0_5mCG_5hmCG]
+         -profile                       Use standard for running locally, or drac when running on Digital Research Alliance of Canada Narval [default: standard]
+         --threads                      Number of threads to use for mapping [default: 40]
+         --help                         This usage statement.
+        """
+}
+
+// Show help message
+if (params.help) {
+    helpMessage()
+    exit 0
+}
 
 include { basecall } from './subworkflows/dorado'
 include { qs_filter } from './subworkflows/samtools'
@@ -36,7 +69,7 @@ workflow {
     map_hg38(ref_hg38_ch, fq_pass)
     map_chm13(ref_hgchm13_ch, fq_pass)
 
-    map_ch = Channel.fromList(map_hg38.out, map_chm13.out)
+    map_ch = map_hg38.out.mix(map_chm13.out)
 
     sam_sort(map_ch)
     mosdepth(sam_sort.out)
@@ -50,9 +83,9 @@ workflow {
         .map { hg38, ch13 -> ch13 }
         .view()
 
-   // adjust_mod(ch13_sorted_ch)
-    // extract(adjust_mod.out)
-   // gather(adjust_mod.out, extract.out)
-   // sturgeon_bed(gather.out)
-   // sturgeon_predict(sturgeon_bed.out, model_ch)
+    adjust_mod(ch13_sorted_ch)
+    extract(adjust_mod.out)
+    gather(adjust_mod.out, extract.out)
+    sturgeon_bed(gather.out)
+    sturgeon_predict(sturgeon_bed.out, model_ch)
 }

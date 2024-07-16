@@ -25,7 +25,7 @@ def helpMessage() {
          --m_bases_path                 Path for the modified basecalling model, required when running with drac profile [default: path to sup@v5.0.0_5mCG_5hmCG]
          -profile                       Use standard for running locally, or drac when running on Digital Research Alliance of Canada Narval [default: standard]
          --threads                      Number of threads to use for mapping [default: 40]
-         --pod5_2                       Path to the second directory of pod5, use only if data comes from two flowcells. The pod5 will be basecalled separately and then merged as fastq for dowstream analyses [default: false]
+         --skip_basecall                Will skip basecalling, takes fastq as input. 
          --help                         This usage statement.
         """
 }
@@ -43,10 +43,11 @@ include { ubam_to_fastq as ubam_to_fastq_f } from './subworkflows/samtools'
 include { nanoplot } from "./subworkflows/nanoplot"
 include { mapping as map_hg38 } from './subworkflows/minimap'
 include { mapping as map_chm13 } from './subworkflows/minimap'
-include { sam_sort } from './subworkflows/samtools'
-include { mosdepth } from './subworkflows/mosdepth'
+include { sam_sort as sort_hg38 } from './subworkflows/samtools'
+include { sam_sort as sort_chm13 } from './subworkflows/samtools'
+include { mosdepth as mos_hg38 } from './subworkflows/mosdepth'
+include { mosdepth as mos_chm13 } from './subworkflows/mosdepth'
 include { multiqc } from './subworkflows/multiqc'
-include { merge_glob } from './subworkflows/ingress'
 include { gather_sturgeon } from './subworkflows/ingress'
 include { adjust_mods } from './subworkflows/modkit'
 include { extract } from './subworkflows/modkit'
@@ -54,46 +55,50 @@ include { predict } from './subworkflows/sturgeon'
 include { inputtobed } from './subworkflows/sturgeon'
 
 workflow {
+
     ref_hg38_ch = Channel.fromPath(params.ref_hg38)
     ref_hgchm13_ch = Channel.fromPath(params.ref_hgchm13)
     d_model = Channel.fromPath(params.dorado_model)
     stmodel_ch = Channel.fromPath(params.sturgeon_model)
 
-    basecall(pod5_ch, d_model)
-
-    qs_filter(basecall.out)
-    nanoplot(basecall.out)
-
-    fq_fail = ubam_to_fastq_f(qs_filter.out.ubam_fail)
-
-    if (params.pod5_2) {
-        pod5_ch = Channel.from([params.pod5,params.pod5_2])
-        fq_sep = ubam_to_fastq_p(qs_filter.out.ubam_pass)
-        fq_pass_merged = fq_sep.flatten()
-        fq_pass = merge_glob(fq_pass_merged)
+    if (params.skip_basecall) {
+        fq_pass = Channel.fromPath(params.fastq)
     } else {
         pod5_ch = Channel.fromPath(params.pod5)
+        basecall(pod5_ch, d_model)
+
+        qs_filter(basecall.out)
+        nanoplot(basecall.out)
+
         fq_pass = ubam_to_fastq_p(qs_filter.out.ubam_pass)
+        fq_fail = ubam_to_fastq_f(qs_filter.out.ubam_fail)
     }
 
     map_hg38(ref_hg38_ch, fq_pass)
     map_chm13(ref_hgchm13_ch, fq_pass)
 
-    map_ch = map_hg38.out.mix(map_chm13.out)
+    sort_hg38(map_hg38.out)
+    sort_chm13(map_chm13.out)
 
-    sam_sort(map_ch)
-    mosdepth(sam_sort.out)
+    mos_hg38(sort_hg38.out)
+    mos_chm13(sort_chm13.out)
 
-    multi_ch = Channel.empty()
-        .mix(nanoplot.out,mosdepth.out)
-        .collect()
-    multiqc(multi_ch)
+    if (params.skip_basecall) {
+        multi_ch = Channel.empty()
+            .mix(mos_hg38.out, mos_chm13.out)
+            .collect()
+        multiqc(multi_ch)
+    } else {
+        multi_ch = Channel.empty()
+            .mix(nanoplot.out,mos_hg38.out,mos_chm13.out)
+            .collect()
+        multiqc(multi_ch)
+    }
 
-    ch13_sorted_ch = sam_sort.out
-        .map { hg38, ch13 -> ch13 }
-        .view()
+    bam_only_chm13 = sort_chm13.out
+        .map { bam, bai -> bam }
 
-    adjust_mods(ch13_sorted_ch)
+    adjust_mods(bam_only_chm13)
     extract(adjust_mods.out)
     gather_sturgeon(adjust_mods.out, extract.out)
     inputtobed(gather_sturgeon.out)

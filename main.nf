@@ -25,6 +25,7 @@ def helpMessage() {
          --m_bases_path                 Path for the modified basecalling model, required when running with drac profile [default: path to sup@v5.0.0_5mCG_5hmCG]
          -profile                       Use standard for running locally, or drac when running on Digital Research Alliance of Canada Narval [default: standard]
          --threads                      Number of threads to use for mapping [default: 40]
+         --two_fc                       Use if data comes from two flowcells. The pod5 will be basecalled separately and then merged as fastq for dowstream analyses [default: false]
          --help                         This usage statement.
         """
 }
@@ -45,6 +46,7 @@ include { mapping as map_chm13 } from './subworkflows/minimap'
 include { sam_sort } from './subworkflows/samtools'
 include { mosdepth } from './subworkflows/mosdepth'
 include { multiqc } from './subworkflows/multiqc'
+include { merge_glob } from '/subworkflows/ingress'
 include { gather_sturgeon } from './subworkflows/ingress'
 include { adjust_mods } from './subworkflows/modkit'
 include { extract } from './subworkflows/modkit'
@@ -63,8 +65,15 @@ workflow {
     qs_filter(basecall.out)
     nanoplot(basecall.out)
 
-    fq_pass = ubam_to_fastq_p(qs_filter.out.ubam_pass)
     fq_fail = ubam_to_fastq_f(qs_filter.out.ubam_fail)
+
+    if (params.two_fc) {
+        fq_sep = ubam_to_fastq_p(qs_filter.out.ubam_pass)
+        fq_pass_merged = fq_sep.flatten()
+        fq_pass = merge_glob(fq_pass_merged)
+    } else {
+        fq_pass = ubam_to_fastq_p(qs_filter.out.ubam_pass)
+    }
 
     map_hg38(ref_hg38_ch, fq_pass)
     map_chm13(ref_hgchm13_ch, fq_pass)

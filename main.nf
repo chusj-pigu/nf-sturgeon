@@ -94,7 +94,7 @@ workflow {
 
     adjust_mods(ch13_sorted_ch)
     extract(adjust_mods.out)
-    gather(adjust_mods.out, extract.out)
-    sturgeon_bed(gather.out)
-    sturgeon_predict(sturgeon_bed.out, model_ch)
+    gather_sturgeon(adjust_mods.out, extract.out)
+    inputtobed(gather_sturgeon.out)
+    predict(inputtobed.out, model_ch)
 }

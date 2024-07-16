@@ -96,5 +96,5 @@ workflow {
     extract(adjust_mods.out)
     gather_sturgeon(adjust_mods.out, extract.out)
     inputtobed(gather_sturgeon.out)
-    predict(inputtobed.out, model_ch)
+    predict(inputtobed.out, stmodel_ch)
 }

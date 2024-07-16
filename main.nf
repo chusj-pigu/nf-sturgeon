@@ -92,7 +92,7 @@ workflow {
         .map { hg38, ch13 -> ch13 }
         .view()
 
-    adjust_mod(ch13_sorted_ch)
+    adjust_mods(ch13_sorted_ch)
     extract(adjust_mod.out)
     gather(adjust_mod.out, extract.out)
     sturgeon_bed(gather.out)

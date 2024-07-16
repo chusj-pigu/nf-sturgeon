@@ -25,7 +25,7 @@ def helpMessage() {
          --m_bases_path                 Path for the modified basecalling model, required when running with drac profile [default: path to sup@v5.0.0_5mCG_5hmCG]
          -profile                       Use standard for running locally, or drac when running on Digital Research Alliance of Canada Narval [default: standard]
          --threads                      Number of threads to use for mapping [default: 40]
-         --two_fc                       Use if data comes from two flowcells. The pod5 will be basecalled separately and then merged as fastq for dowstream analyses [default: false]
+         --pod5_2                       Path to the second directory of pod5, use only if data comes from two flowcells. The pod5 will be basecalled separately and then merged as fastq for dowstream analyses [default: false]
          --help                         This usage statement.
         """
 }
@@ -54,7 +54,6 @@ include { predict } from './subworkflows/sturgeon'
 include { inputtobed } from './subworkflows/sturgeon'
 
 workflow {
-    pod5_ch = Channel.fromPath(params.pod5, checkIfExists=true).collect(flatten=false)
     ref_hg38_ch = Channel.fromPath(params.ref_hg38)
     ref_hgchm13_ch = Channel.fromPath(params.ref_hgchm13)
     d_model = Channel.fromPath(params.dorado_model)
@@ -67,11 +66,13 @@ workflow {
 
     fq_fail = ubam_to_fastq_f(qs_filter.out.ubam_fail)
 
-    if (params.two_fc) {
+    if (params.pod5_2) {
+        pod5_ch = Channel.from([params.pod5,params.pod5_2])
         fq_sep = ubam_to_fastq_p(qs_filter.out.ubam_pass)
         fq_pass_merged = fq_sep.flatten()
         fq_pass = merge_glob(fq_pass_merged)
     } else {
+        pod5_ch = Channel.fromPath(params.pod5)
         fq_pass = ubam_to_fastq_p(qs_filter.out.ubam_pass)
     }
 

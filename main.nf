@@ -54,7 +54,7 @@ include { predict } from './subworkflows/sturgeon'
 include { inputtobed } from './subworkflows/sturgeon'
 
 workflow {
-    pod5_ch = Channel.fromPath(params.pod5, type: 'dir', checkIfExists=true)
+    pod5_ch = Channel.fromPath(params.pod5, checkIfExists=true).collect(flatten=false)
     ref_hg38_ch = Channel.fromPath(params.ref_hg38)
     ref_hgchm13_ch = Channel.fromPath(params.ref_hgchm13)
     d_model = Channel.fromPath(params.dorado_model)

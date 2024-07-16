@@ -93,8 +93,8 @@ workflow {
         .view()
 
     adjust_mods(ch13_sorted_ch)
-    extract(adjust_mod.out)
-    gather(adjust_mod.out, extract.out)
+    extract(adjust_mods.out)
+    gather(adjust_mods.out, extract.out)
     sturgeon_bed(gather.out)
     sturgeon_predict(sturgeon_bed.out, model_ch)
 }

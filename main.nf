@@ -1,4 +1,3 @@
-params.simplex = true
 params.dorado_cpu = false
 params.b = null
 params.no_mod = false

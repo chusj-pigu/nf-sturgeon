@@ -25,6 +25,7 @@ def helpMessage() {
          -profile                       Use standard for running locally, or drac when running on Digital Research Alliance of Canada Narval [default: standard]
          --threads                      Number of threads to use for mapping [default: 40]
          --skip_basecall                Will skip basecalling, takes fastq as input. 
+         --skip_hg38                    Will skip parallel mapping to hg38.
          --help                         This usage statement.
         """
 }
@@ -55,13 +56,56 @@ include { inputtobed } from './subworkflows/sturgeon'
 
 workflow {
 
-    ref_hg38_ch = Channel.fromPath(params.ref_hg38)
     ref_hgchm13_ch = Channel.fromPath(params.ref_hgchm13)
     d_model = Channel.fromPath(params.dorado_model)
     stmodel_ch = Channel.fromPath(params.sturgeon_model)
 
-    if (params.skip_basecall) {
+    if (params.skip_basecall && params.skip_hg38) {
         fq_pass = Channel.fromPath(params.fastq)
+        
+        map_chm13(ref_hgchm13_ch, fq_pass)
+        sort_chm13(map_chm13.out)
+        mos_chm13(sort_chm13.out)
+
+        multi_ch = Channel.empty()
+            .mix(mos_chm13.out)
+            .collect()
+        multiqc(multi_ch)
+    } else if (!params.skip_basecall && params.skip_hg38) {
+        pod5_ch = Channel.fromPath(params.pod5)
+        basecall(pod5_ch, d_model)
+
+        qs_filter(basecall.out)
+        nanoplot(basecall.out)
+
+        fq_pass = ubam_to_fastq_p(qs_filter.out.ubam_pass)
+        fq_fail = ubam_to_fastq_f(qs_filter.out.ubam_fail)
+
+        map_chm13(ref_hgchm13_ch, fq_pass)
+        sort_chm13(map_chm13.out)
+        mos_chm13(sort_chm13.out)
+
+        multi_ch = Channel.empty()
+            .mix(nanoplot.out,mos_chm13.out)
+            .collect()
+        multiqc(multi_ch)
+    } else if (!params.skip_hg38 && params.skip_basecall) {
+        fq_pass = Channel.fromPath(params.fastq)
+
+        map_hg38(ref_hg38_ch, fq_pass)
+        map_chm13(ref_hgchm13_ch, fq_pass)
+
+        sort_hg38(map_hg38.out)
+        sort_chm13(map_chm13.out)
+
+        mos_hg38(sort_hg38.out)
+        mos_chm13(sort_chm13.out)
+
+        multi_ch = Channel.empty()
+            .mix(mos_hg38.out,mos_chm13.out)
+            .collect()
+        multiqc(multi_ch)
+
     } else {
         pod5_ch = Channel.fromPath(params.pod5)
         basecall(pod5_ch, d_model)
@@ -71,27 +115,21 @@ workflow {
 
         fq_pass = ubam_to_fastq_p(qs_filter.out.ubam_pass)
         fq_fail = ubam_to_fastq_f(qs_filter.out.ubam_fail)
-    }
 
-    map_hg38(ref_hg38_ch, fq_pass)
-    map_chm13(ref_hgchm13_ch, fq_pass)
+        map_hg38(ref_hg38_ch, fq_pass)
+        map_chm13(ref_hgchm13_ch, fq_pass)
 
-    sort_hg38(map_hg38.out)
-    sort_chm13(map_chm13.out)
+        sort_hg38(map_hg38.out)
+        sort_chm13(map_chm13.out)
 
-    mos_hg38(sort_hg38.out)
-    mos_chm13(sort_chm13.out)
+        mos_hg38(sort_hg38.out)
+        mos_chm13(sort_chm13.out)
 
-    if (params.skip_basecall) {
-        multi_ch = Channel.empty()
-            .mix(mos_hg38.out, mos_chm13.out)
-            .collect()
-        multiqc(multi_ch)
-    } else {
         multi_ch = Channel.empty()
             .mix(nanoplot.out,mos_hg38.out,mos_chm13.out)
             .collect()
         multiqc(multi_ch)
+
     }
 
     bam_only_chm13 = sort_chm13.out

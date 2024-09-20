@@ -108,6 +108,8 @@ workflow {
 
     } else {
         pod5_ch = Channel.fromPath(params.pod5)
+        ref_hg38_ch = Channel.fromPath(params.ref_hg38)
+
         basecall(pod5_ch, d_model)
 
         qs_filter(basecall.out)

@@ -1,6 +1,3 @@
-params.dorado_cpu = false
-params.b = null
-params.no_mod = false
 
 // Usage help
 
@@ -36,23 +33,11 @@ if (params.help) {
     exit 0
 }
 
-include { basecall } from './subworkflows/dorado'
-include { qs_filter } from './subworkflows/samtools'
-include { ubam_to_fastq as ubam_to_fastq_p } from './subworkflows/samtools'
-include { ubam_to_fastq as ubam_to_fastq_f } from './subworkflows/samtools'
-include { nanoplot } from "./subworkflows/nanoplot"
-include { mapping as map_hg38 } from './subworkflows/minimap'
-include { mapping as map_chm13 } from './subworkflows/minimap'
-include { sam_sort as sort_hg38 } from './subworkflows/samtools'
-include { sam_sort as sort_chm13 } from './subworkflows/samtools'
-include { mosdepth as mos_hg38 } from './subworkflows/mosdepth'
-include { mosdepth as mos_chm13 } from './subworkflows/mosdepth'
-include { multiqc } from './subworkflows/multiqc'
-include { gather_sturgeon } from './subworkflows/ingress'
-include { adjust_mods } from './subworkflows/modkit'
-include { extract } from './subworkflows/modkit'
-include { predict } from './subworkflows/sturgeon'
-include { inputtobed } from './subworkflows/sturgeon'
+include { SIMPLEX } from "./subworkflows/simplex"
+include { ALIGNMENT as ALIGN_hg38 } from './subworkflows/mapping'
+include { ALIGNMENT as ALIGN_chm13 } from './subworkflows/mapping'
+include { multiqc } from './modules/multiqc'
+include { CNS_RESULT } from './subworkflows/sturgeon'
 
 workflow {
 
@@ -63,46 +48,32 @@ workflow {
     if (params.skip_basecall && params.skip_hg38) {
         fq_pass = Channel.fromPath(params.fastq)
         
-        map_chm13(ref_hgchm13_ch, fq_pass)
-        sort_chm13(map_chm13.out)
-        mos_chm13(sort_chm13.out)
+        ALIGN_chm13(fq_pass, ref_hgchm13_ch)
 
         multi_ch = Channel.empty()
-            .mix(mos_chm13.out)
+            .mix(ALIGN_chm13.out.mosdepth_dist, ALIGN_chm13.out.mosdepth_summary, ALIGN_chm13.out.mosdepth_bed)
             .collect()
         multiqc(multi_ch)
+        
     } else if (!params.skip_basecall && params.skip_hg38) {
         pod5_ch = Channel.fromPath(params.pod5)
-        basecall(pod5_ch, d_model)
-
-        qs_filter(basecall.out)
-        nanoplot(basecall.out)
-
-        fq_pass = ubam_to_fastq_p(qs_filter.out.ubam_pass)
-        fq_fail = ubam_to_fastq_f(qs_filter.out.ubam_fail)
-
-        map_chm13(ref_hgchm13_ch, fq_pass)
-        sort_chm13(map_chm13.out)
-        mos_chm13(sort_chm13.out)
+        SIMPLEX(pod5_ch,d_model)
+        ALIGN_chm13(SIMPLEX.out.fq_pass,ref_hgchm13_ch)
 
         multi_ch = Channel.empty()
-            .mix(nanoplot.out,mos_chm13.out)
+            .mix(SIMPLEX.out.nanoplot_res, ALIGN_chm13.out.mosdepth_dist, ALIGN_chm13.out.mosdepth_summary, ALIGN_chm13.out.mosdepth_bed)
             .collect()
         multiqc(multi_ch)
+
     } else if (!params.skip_hg38 && params.skip_basecall) {
         fq_pass = Channel.fromPath(params.fastq)
+        ref_hg38_ch = Channel.fromPath(params.ref_hg38)
 
-        map_hg38(ref_hg38_ch, fq_pass)
-        map_chm13(ref_hgchm13_ch, fq_pass)
-
-        sort_hg38(map_hg38.out)
-        sort_chm13(map_chm13.out)
-
-        mos_hg38(sort_hg38.out)
-        mos_chm13(sort_chm13.out)
+        ALIGN_chm13(fq_pass, ref_hgchm13_ch)
+        ALIGN_hg38(fq_pass, ref_hg38_ch)
 
         multi_ch = Channel.empty()
-            .mix(mos_hg38.out,mos_chm13.out)
+            .mix(ALIGN_chm13.out.mosdepth_dist, ALIGN_chm13.out.mosdepth_summary, ALIGN_chm13.out.mosdepth_bed, ALIGN_hg38.out.mosdepth_dist, ALIGN_hg38.out.mosdepth_summary, ALIGN_hg38.out.mosdepth_bed)
             .collect()
         multiqc(multi_ch)
 
@@ -110,36 +81,20 @@ workflow {
         pod5_ch = Channel.fromPath(params.pod5)
         ref_hg38_ch = Channel.fromPath(params.ref_hg38)
 
-        basecall(pod5_ch, d_model)
+        SIMPLEX(pod5_ch,d_model)
 
-        qs_filter(basecall.out)
-        nanoplot(basecall.out)
-
-        fq_pass = ubam_to_fastq_p(qs_filter.out.ubam_pass)
-        fq_fail = ubam_to_fastq_f(qs_filter.out.ubam_fail)
-
-        map_hg38(ref_hg38_ch, fq_pass)
-        map_chm13(ref_hgchm13_ch, fq_pass)
-
-        sort_hg38(map_hg38.out)
-        sort_chm13(map_chm13.out)
-
-        mos_hg38(sort_hg38.out)
-        mos_chm13(sort_chm13.out)
+        ALIGN_chm13(SIMPLEX.out.fq_pass, ref_hgchm13_ch)
+        ALIGN_hg38(SIMPLEX.out.fq_pass, ref_hg38_ch)
 
         multi_ch = Channel.empty()
-            .mix(nanoplot.out,mos_hg38.out,mos_chm13.out)
+            .mix(SIMPLEX.out.nanoplot_res,ALIGN_chm13.out.mosdepth_dist, ALIGN_chm13.out.mosdepth_summary, ALIGN_chm13.out.mosdepth_bed, ALIGN_hg38.out.mosdepth_dist, ALIGN_hg38.out.mosdepth_summary, ALIGN_hg38.out.mosdepth_bed)
             .collect()
         multiqc(multi_ch)
 
     }
 
-    bam_only_chm13 = sort_chm13.out
+    bam_only_chm13 = ALIGN_chm13.out.bam
         .map { bam, bai -> bam }
 
-    adjust_mods(bam_only_chm13)
-    extract(adjust_mods.out)
-    gather_sturgeon(adjust_mods.out, extract.out)
-    inputtobed(gather_sturgeon.out)
-    predict(inputtobed.out, stmodel_ch)
+    CNS_RESULT(bam_only_chm13, stmodel_ch)
 }

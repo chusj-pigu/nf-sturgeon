@@ -1,3 +1,0 @@
-[submodule "subworkflows"]
-	path = modules
-	url = https://github.com/chusj-pigu/subworkflows

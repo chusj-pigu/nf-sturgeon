@@ -44,6 +44,7 @@ workflow {
     ref_hgchm13_ch = Channel.fromPath(params.ref_hgchm13)
     d_model = Channel.fromPath(params.dorado_model)
     stmodel_ch = Channel.fromPath(params.sturgeon_model)
+    partial_ubam = Channel.fromPath(params.ubam)
 
     if (params.skip_basecall && params.skip_hg38) {
         fq_pass = Channel.fromPath(params.fastq)
@@ -57,7 +58,7 @@ workflow {
         
     } else if (!params.skip_basecall && params.skip_hg38) {
         pod5_ch = Channel.fromPath(params.pod5)
-        SIMPLEX(pod5_ch,d_model)
+        SIMPLEX(pod5_ch,partial_ubam,d_model)
         ALIGN_chm13(SIMPLEX.out.fq_pass,ref_hgchm13_ch)
 
         multi_ch = Channel.empty()
@@ -81,7 +82,7 @@ workflow {
         pod5_ch = Channel.fromPath(params.pod5)
         ref_hg38_ch = Channel.fromPath(params.ref_hg38)
 
-        SIMPLEX(pod5_ch,d_model)
+        SIMPLEX(pod5_ch,partial_ubam,d_model)
 
         ALIGN_chm13(SIMPLEX.out.fq_pass, ref_hgchm13_ch)
         ALIGN_hg38(SIMPLEX.out.fq_pass, ref_hg38_ch)

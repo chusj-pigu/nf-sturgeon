@@ -9,11 +9,11 @@ include { multiqc } from '../modules/multiqc'
 workflow SIMPLEX {
     take:
     pod5
+    ubam
     model
-    ref
     
     main:
-    basecall(pod5, model)
+    basecall(pod5, model, ubam)
 
     qs_filter(basecall.out)
     nanoplot(basecall.out)

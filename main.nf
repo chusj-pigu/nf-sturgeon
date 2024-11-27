@@ -52,7 +52,7 @@ workflow {
         ALIGN_chm13(fq_pass, ref_hgchm13_ch)
 
         multi_ch = Channel.empty()
-            .mix(ALIGN_chm13.out.mosdepth_dist, ALIGN_chm13.out.mosdepth_summary, ALIGN_chm13.out.mosdepth_bed)
+            .mix(ALIGN_chm13.out.mosdepth_out)
             .collect()
         multiqc(multi_ch)
         
@@ -62,7 +62,7 @@ workflow {
         ALIGN_chm13(SIMPLEX.out.fq_pass,ref_hgchm13_ch)
 
         multi_ch = Channel.empty()
-            .mix(SIMPLEX.out.nanoplot_res, ALIGN_chm13.out.mosdepth_dist, ALIGN_chm13.out.mosdepth_summary, ALIGN_chm13.out.mosdepth_bed)
+            .mix(SIMPLEX.out.nanoplot_res, ALIGN_chm13.out.mosdepth_out)
             .collect()
         multiqc(multi_ch)
 
@@ -74,7 +74,7 @@ workflow {
         ALIGN_hg38(fq_pass, ref_hg38_ch)
 
         multi_ch = Channel.empty()
-            .mix(ALIGN_chm13.out.mosdepth_dist, ALIGN_chm13.out.mosdepth_summary, ALIGN_chm13.out.mosdepth_bed, ALIGN_hg38.out.mosdepth_dist, ALIGN_hg38.out.mosdepth_summary, ALIGN_hg38.out.mosdepth_bed)
+            .mix(ALIGN_chm13.out.mosdepth_out, ALIGN_hg38.out.mosdepth_out)
             .collect()
         multiqc(multi_ch)
 
@@ -88,7 +88,7 @@ workflow {
         ALIGN_hg38(SIMPLEX.out.fq_pass, ref_hg38_ch)
 
         multi_ch = Channel.empty()
-            .mix(SIMPLEX.out.nanoplot_res,ALIGN_chm13.out.mosdepth_dist, ALIGN_chm13.out.mosdepth_summary, ALIGN_chm13.out.mosdepth_bed, ALIGN_hg38.out.mosdepth_dist, ALIGN_hg38.out.mosdepth_summary, ALIGN_hg38.out.mosdepth_bed)
+            .mix(SIMPLEX.out.nanoplot_res,ALIGN_chm13.out.mosdepth_out, ALIGN_hg38.out.mosdepth_out)
             .collect()
         multiqc(multi_ch)
 

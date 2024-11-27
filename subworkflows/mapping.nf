@@ -14,7 +14,5 @@ workflow ALIGNMENT {
 
     emit: 
     bam = sam_sort.out
-    mosdepth_dist = mosdepth.out[0]
-    mosdepth_summary = mosdepth.out[1]
-    mosdepth_bed = mosdepth.out[2]
+    mosdepth_out = mosdepth.out
 }
